@@ -57,6 +57,13 @@ void ProblemGenerator::setParameters(const RobotPtr &robot, const std::string &g
     if (tips_.empty())
         tips_ = robot->getSolverTipFrames(group);
 
+    // If no end effectors are found, raise error because we rely on having an ee
+    // for query generation
+    if (tips_.empty())
+    {
+        throw Exception(1, "problem_generator cannot generate queries because no end effector was found");
+    }
+
     // if tips_ not initialized use the robots end_effector
     if (ee_offset_.empty())
         ee_offset_.emplace_back(RobotPose::Identity());
