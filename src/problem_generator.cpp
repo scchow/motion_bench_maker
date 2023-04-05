@@ -226,7 +226,7 @@ ProblemGenerator::QueryResult ProblemGenerator::createRandomRequest()
         throw Exception(1, "No valid start/goal pairs exist!");
 
     // Chose a valid random start/goal pair.
-    const auto &pair = sg_queries_[rand() % sg_queries_.size()];
+    const auto &pair = sg_queries_[RNG::uniformInt(0, RAND_MAX) % sg_queries_.size()];
     return createRequest(pair.first, pair.second);
 }
 
@@ -240,7 +240,7 @@ ProblemGenerator::QueryResult ProblemGenerator::createRandomRequestWithGoalQuery
     if (st_queries.empty())
         throw Exception(1, "Not enough start_queries exist different");
 
-    return createRequest(st_queries[rand() % st_queries.size()], goal_query);
+    return createRequest(st_queries[RNG::uniformInt(0, RAND_MAX) % st_queries.size()], goal_query);
 }
 
 ProblemGenerator::QueryResult ProblemGenerator::createRandomRequestWithStartQuery(const Query &start_query)
@@ -253,7 +253,7 @@ ProblemGenerator::QueryResult ProblemGenerator::createRandomRequestWithStartQuer
     if (gl_queries.empty())
         throw Exception(1, "Not enough qoal_queries exist");
 
-    return createRequest(start_query, gl_queries[rand() % gl_queries.size()]);
+    return createRequest(start_query, gl_queries[RNG::uniformInt(0, RAND_MAX) % gl_queries.size()]);
 }
 
 ProblemGenerator::QueryResult
@@ -266,7 +266,7 @@ ProblemGenerator::createRandomRequestWithStartState(const robot_state::RobotStat
     if (gl_queries.empty())
         throw Exception(1, "Not enough qoal_queries exist");
 
-    return createRequest(start_state, gl_queries[rand() % gl_queries.size()]);
+    return createRequest(start_state, gl_queries[RNG::uniformInt(0, RAND_MAX) % gl_queries.size()]);
 }
 
 int ProblemGenerator::getNumberOfStartObjectQueries() const
