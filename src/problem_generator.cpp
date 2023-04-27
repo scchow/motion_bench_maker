@@ -350,17 +350,10 @@ bool ProblemGenerator::setStateFromQuery(const Query &query)
     {
         const auto &oq = query.object_queries[i];
 
-        // Get object pose.
-        const auto &object_pose = scene_->getObjectPose(oq.object);
-
-        // Transform from root link to object.
-        const auto &root_to_query_object = root_pose * object_pose;
-
-        // Get query pose with respect to root link.
-        const auto &query_pose = root_to_query_object * oq.offset_pose;
-
-        // Apply any additional ee_offset pose.
-        auto ee_query_pose = query_pose * ee_offset_[i].inverse();
+        // Compute the end effector pose by transforming from:
+        // world -> object -> object_offset -> end effector offset
+        // ee query pose = T(world->object) * T(object->offset) * T(offset->ee_offset)
+        auto ee_query_pose = scene_->getObjectPose(oq.object) * oq.offset_pose * ee_offset_[i].inverse();
 
         last_query_pose_.emplace_back(ee_query_pose);
         regions.push_back(robowflex::Geometry::makeBox(oq.pos_tol[0], oq.pos_tol[1], oq.pos_tol[2]));
