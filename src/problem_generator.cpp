@@ -57,6 +57,13 @@ void ProblemGenerator::setParameters(const RobotPtr &robot, const std::string &g
     if (tips_.empty())
         tips_ = robot->getSolverTipFrames(group);
 
+    // If no end effectors are found, raise error because we rely on having an ee
+    // for query generation
+    if (tips_.empty())
+    {
+        throw Exception(1, "problem_generator cannot generate queries because no end effector was found");
+    }
+
     // if tips_ not initialized use the robots end_effector
     if (ee_offset_.empty())
         ee_offset_.emplace_back(RobotPose::Identity());
@@ -219,7 +226,7 @@ ProblemGenerator::QueryResult ProblemGenerator::createRandomRequest()
         throw Exception(1, "No valid start/goal pairs exist!");
 
     // Chose a valid random start/goal pair.
-    const auto &pair = sg_queries_[rand() % sg_queries_.size()];
+    const auto &pair = sg_queries_[RNG::uniformInt(0, RAND_MAX) % sg_queries_.size()];
     return createRequest(pair.first, pair.second);
 }
 
@@ -233,7 +240,7 @@ ProblemGenerator::QueryResult ProblemGenerator::createRandomRequestWithGoalQuery
     if (st_queries.empty())
         throw Exception(1, "Not enough start_queries exist different");
 
-    return createRequest(st_queries[rand() % st_queries.size()], goal_query);
+    return createRequest(st_queries[RNG::uniformInt(0, RAND_MAX) % st_queries.size()], goal_query);
 }
 
 ProblemGenerator::QueryResult ProblemGenerator::createRandomRequestWithStartQuery(const Query &start_query)
@@ -246,7 +253,7 @@ ProblemGenerator::QueryResult ProblemGenerator::createRandomRequestWithStartQuer
     if (gl_queries.empty())
         throw Exception(1, "Not enough qoal_queries exist");
 
-    return createRequest(start_query, gl_queries[rand() % gl_queries.size()]);
+    return createRequest(start_query, gl_queries[RNG::uniformInt(0, RAND_MAX) % gl_queries.size()]);
 }
 
 ProblemGenerator::QueryResult
@@ -259,7 +266,7 @@ ProblemGenerator::createRandomRequestWithStartState(const robot_state::RobotStat
     if (gl_queries.empty())
         throw Exception(1, "Not enough qoal_queries exist");
 
-    return createRequest(start_state, gl_queries[rand() % gl_queries.size()]);
+    return createRequest(start_state, gl_queries[RNG::uniformInt(0, RAND_MAX) % gl_queries.size()]);
 }
 
 int ProblemGenerator::getNumberOfStartObjectQueries() const
@@ -343,17 +350,10 @@ bool ProblemGenerator::setStateFromQuery(const Query &query)
     {
         const auto &oq = query.object_queries[i];
 
-        // Get object pose.
-        const auto &object_pose = scene_->getObjectPose(oq.object);
-
-        // Transform from root link to object.
-        const auto &root_to_query_object = root_pose * object_pose;
-
-        // Get query pose with respect to root link.
-        const auto &query_pose = root_to_query_object * oq.offset_pose;
-
-        // Apply any additional ee_offset pose.
-        auto ee_query_pose = query_pose * ee_offset_[i].inverse();
+        // Compute the end effector pose by transforming from:
+        // world -> object -> object_offset -> end effector offset
+        // ee query pose = T(world->object) * T(object->offset) * T(offset->ee_offset)
+        auto ee_query_pose = scene_->getObjectPose(oq.object) * oq.offset_pose * ee_offset_[i].inverse();
 
         last_query_pose_.emplace_back(ee_query_pose);
         regions.push_back(robowflex::Geometry::makeBox(oq.pos_tol[0], oq.pos_tol[1], oq.pos_tol[2]));
