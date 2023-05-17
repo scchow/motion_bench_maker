@@ -1,15 +1,19 @@
 /* Author: Constantinos Chamzas */
 
+#include <string>
+
 // Robowflex dataset
 #include "geometric_shapes/mesh_operations.h"
 #include <motion_bench_maker/octomap_generator.h>
 #include <motion_bench_maker/yaml.h>
+#include <motion_bench_maker/parser.h>
 
 // Robowflex library
 #include <robowflex_library/scene.h>
 #include <robowflex_library/geometry.h>
 #include <robowflex_library/io/visualization.h>
 #include <robowflex_library/scene.h>
+#include <robowflex_library/log.h>
 
 #include <geometric_shapes/shape_operations.h>
 
@@ -112,6 +116,10 @@ bool OctomapGenerator::geomToSensed(const ScenePtr &geometric, const ScenePtr &s
 
     loadScene(geometric);
 
+    std::vector<std::string> marker_names;
+    int marker_ind = 0;
+    std::string marker_name = "";
+
     for (const auto &el : sensors_.look_objects)
     {
         if (not geometric->hasObject(el.first))
@@ -123,12 +131,23 @@ bool OctomapGenerator::geomToSensed(const ScenePtr &geometric, const ScenePtr &s
             const auto cam_pose = lookat(eye, origin);
             if (rviz)
             {
-                rviz->addTransformMarker("camera", "map", cam_pose);
-                rviz->addMarker(origin, "origin");
-                rviz->addMarker(eye, "eye");
+                int marker_ind_curr = marker_ind++;
+
+                marker_name = "camera_" + std::to_string(marker_ind_curr);
+                marker_names.push_back(marker_name + "X");
+                marker_names.push_back(marker_name + "Y");
+                marker_names.push_back(marker_name + "Z");
+                rviz->addTransformMarker(marker_name, "map", cam_pose);
+
+                marker_name = "origin_" + std::to_string(marker_ind_curr);
+                marker_names.push_back(marker_name);
+                rviz->addMarker(origin, marker_name);
+
+                marker_name = "eye_" + std::to_string(marker_ind_curr);
+                marker_names.push_back(marker_name);
+                rviz->addMarker(eye, marker_name);
+
                 rviz->updateMarkers();
-                std::cout << "Visualizing press enter to continue" << std::endl;
-                std::cin.ignore();
             }
             const auto &cloud = generateCloud(cam_pose);
 
@@ -136,6 +155,17 @@ bool OctomapGenerator::geomToSensed(const ScenePtr &geometric, const ScenePtr &s
                 return false;
         }
     }
+    if (rviz)
+    {
+        parser::waitForUser("Visualizing `origin` and `eye` poses as markers.");
+        // Remove all markers added in this process
+        for (const auto &marker : marker_names)
+        {
+            rviz->removeMarker(marker);
+        }
+        rviz->updateMarkers();
+    }
+
     sensed->getScene()->processOctomapPtr(tree_, RobotPose::Identity());
 
     ROS_INFO("Generated Octomap cloud in %lf ms", (ros::WallTime::now() - start).toSec() * 1000.0);
