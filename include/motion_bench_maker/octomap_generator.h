@@ -52,7 +52,15 @@ namespace robowflex
             std::string camera_config;
             std::vector<std::pair<std::string, Eigen::Vector3d>> look_objects;
             std::vector<Eigen::Vector3d> cam_points;  // this is the direction of z
+            std::vector<std::pair<Eigen::Vector3d, Eigen::Vector3d>> custom_cameras;  // cam position ->
+                                                                                      // look direction
+
             double resolution;
+
+            bool use_camera_grid = false;  // flag to use camera grid (default false)
+            double grid_spacing;           // spacing between cameras in a grid
+            double camera_height;          // height of the camera grid
+            std::pair<std::vector<double>, std::vector<double>> workspace_bounds;
         };
         // Constructor
         OctomapGenerator(const std::string &config);
@@ -60,7 +68,6 @@ namespace robowflex
         RobotPose lookat(const Eigen::Vector3d &eye, const Eigen::Vector3d &origin);
 
         // @brief loads a scene to the
-
         void loadScene(const SceneConstPtr &scene);
 
         // pose The position of the camera in ROS standard coordinates (+Z down camera LoS)

@@ -352,27 +352,61 @@ bool IO::loadSensors(const std::string &config, OctomapGenerator::Sensors &senso
         else
             throw Exception(1, "No camera_config");
 
-        if (node["look_objects"].IsSequence())
-            for (const auto &n : node["look_objects"])
-            {
-                const auto name = n["name"].as<std::string>();
-                const auto pos = YAMLToEigen(n["position"]);
-                const auto pair = std::pair<std::string, Eigen::Vector3d>(name, pos);
-                sensors.look_objects.emplace_back(pair);
-            }
-        else
-            throw Exception(1, "look objects is not a sequence");
-
-        if (node["cam_points"].IsSequence())
-            for (const auto &n : node["cam_points"])
-                sensors.cam_points.push_back(YAMLToEigen(n));
-        else
-            throw Exception(1, "cam_points is not a sequence");
-
         if (IO::isNode(node["resolution"]))
             sensors.resolution = node["resolution"].as<double>();
         else
-            throw Exception(1, "camera_config!");
+            throw Exception(1, "camera config requires resolution parameter!");
+
+        // if we are defining cameras using cam_points -> look_objects interface
+        if (node["cam_points"])
+        {
+            if (node["look_objects"].IsSequence())
+                for (const auto &n : node["look_objects"])
+                {
+                    const auto name = n["name"].as<std::string>();
+                    const auto pos = YAMLToEigen(n["position"]);
+                    const auto pair = std::pair<std::string, Eigen::Vector3d>(name, pos);
+                    sensors.look_objects.emplace_back(pair);
+                }
+            else
+                throw Exception(1, "look objects is not a sequence");
+
+            if (node["cam_points"].IsSequence())
+                for (const auto &n : node["cam_points"])
+                    sensors.cam_points.push_back(YAMLToEigen(n));
+            else
+                throw Exception(1, "cam_points is not a sequence");
+        }
+
+        // Custom mod for specifying cameras manually
+        if (node["custom_cameras"])
+        {
+            if (node["custom_cameras"].IsSequence())
+            {
+                for (const auto &n : node["custom_cameras"])
+                {
+                    const auto cam_pos = YAMLToEigen(n["cam_pos"]);
+                    const auto look_dir = YAMLToEigen(n["look_dir"]);
+                    const auto pair = std::pair<Eigen::Vector3d, Eigen::Vector3d>(cam_pos, look_dir);
+                    sensors.custom_cameras.emplace_back(pair);
+                }
+            }
+            else
+            {
+                throw Exception(1, "custom_cameras is not a sequence");
+            }
+        }
+
+        // Create a grid of sensors at a fixed height
+        if (node["camera_grid"])
+        {
+            sensors.use_camera_grid = node["camera_grid"]["enable"].as<bool>();
+            sensors.grid_spacing = node["camera_grid"]["grid_spacing"].as<double>();
+            sensors.camera_height = node["camera_grid"]["camera_height"].as<double>();
+            sensors.workspace_bounds =
+                std::make_pair(YAMLToVector(node["camera_grid"]["workspace_bounds"]["min"]),
+                               YAMLToVector(node["camera_grid"]["workspace_bounds"]["max"]));
+        }
     }
     catch (std::exception &e)
     {

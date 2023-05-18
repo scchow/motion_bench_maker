@@ -33,7 +33,7 @@ OctomapGenerator::OctomapGenerator(const std::string &config)
     // Load the camera properties for rendering
     IO::loadCameraProperties(sensors_.camera_config, props_);
 
-    // The center point lies in the midle of height/width.
+    // The center point lies in the middle of height/width.
     props_.cx = props_.width / 2.0;
     props_.cy = props_.height / 2.0;
 
@@ -48,6 +48,20 @@ RobotPose OctomapGenerator::lookat(const Eigen::Vector3d &eye, const Eigen::Vect
     Eigen::Vector3d z = (eye - origin).normalized();
     Eigen::Vector3d x = z.cross(up).normalized();
     Eigen::Vector3d y = z.cross(x).normalized();
+
+    // Catch cases where eye and origin are perfectly aligned along some axis.
+    if (x.isZero(1e-6))
+    {
+        x = Eigen::Vector3d(1, 0, 0);
+    }
+    if (y.isZero(1e-6))
+    {
+        y = Eigen::Vector3d(0, 1, 0);
+    }
+    if (z.isZero(1e-6))
+    {
+        z = Eigen::Vector3d(0, 0, 1);
+    }
 
     RobotPose p = RobotPose::Identity();
     p.translation() = origin;
@@ -129,6 +143,11 @@ bool OctomapGenerator::geomToSensed(const ScenePtr &geometric, const ScenePtr &s
         for (const auto &origin : sensors_.cam_points)
         {
             const auto cam_pose = lookat(eye, origin);
+            const auto &cloud = generateCloud(cam_pose);
+
+            if (not updateOctoMap(cloud, cam_pose))
+                return false;
+
             if (rviz)
             {
                 int marker_ind_curr = marker_ind++;
@@ -149,12 +168,83 @@ bool OctomapGenerator::geomToSensed(const ScenePtr &geometric, const ScenePtr &s
 
                 rviz->updateMarkers();
             }
-            const auto &cloud = generateCloud(cam_pose);
-
-            if (not updateOctoMap(cloud, cam_pose))
-                return false;
         }
     }
+
+    for (auto const &cam : sensors_.custom_cameras)
+    {
+        const auto &origin = cam.first;
+        const auto &eye = cam.second;
+
+        const auto cam_pose = lookat(eye, origin);
+        const auto &cloud = generateCloud(cam_pose);
+
+        if (not updateOctoMap(cloud, cam_pose))
+            return false;
+
+        if (rviz)
+        {
+            int marker_ind_curr = marker_ind++;
+
+            marker_name = "camera_" + std::to_string(marker_ind_curr);
+            marker_names.push_back(marker_name + "X");
+            marker_names.push_back(marker_name + "Y");
+            marker_names.push_back(marker_name + "Z");
+            rviz->addTransformMarker(marker_name, "map", cam_pose, 2.0);
+
+            marker_name = "origin_" + std::to_string(marker_ind_curr);
+            marker_names.push_back(marker_name);
+            rviz->addMarker(origin, marker_name, 1.0);
+
+            marker_name = "eye_" + std::to_string(marker_ind_curr);
+            marker_names.push_back(marker_name);
+            rviz->addMarker(eye, marker_name);
+
+            rviz->updateMarkers();
+        }
+    }
+
+    if (sensors_.use_camera_grid)
+    {
+        for (int x = sensors_.workspace_bounds.first[0]; x <= sensors_.workspace_bounds.second[0];
+             x += sensors_.grid_spacing)
+        {
+            for (int y = sensors_.workspace_bounds.first[1]; y <= sensors_.workspace_bounds.second[1];
+                 y += sensors_.grid_spacing)
+            {
+                const auto &origin = Eigen::Vector3d(x, y, sensors_.camera_height);
+                const auto &eye = Eigen::Vector3d(x, y, 0.0);
+
+                const auto cam_pose = lookat(eye, origin);
+                const auto &cloud = generateCloud(cam_pose);
+
+                if (not updateOctoMap(cloud, cam_pose))
+                    return false;
+
+                if (rviz)
+                {
+                    int marker_ind_curr = marker_ind++;
+
+                    marker_name = "camera_" + std::to_string(marker_ind_curr);
+                    marker_names.push_back(marker_name + "X");
+                    marker_names.push_back(marker_name + "Y");
+                    marker_names.push_back(marker_name + "Z");
+                    rviz->addTransformMarker(marker_name, "map", cam_pose, 2.0);
+
+                    marker_name = "origin_" + std::to_string(marker_ind_curr);
+                    marker_names.push_back(marker_name);
+                    rviz->addMarker(origin, marker_name, 1.0);
+
+                    marker_name = "eye_" + std::to_string(marker_ind_curr);
+                    marker_names.push_back(marker_name);
+                    rviz->addMarker(eye, marker_name);
+
+                    rviz->updateMarkers();
+                }
+            }
+        }
+    }
+
     if (rviz)
     {
         parser::waitForUser("Visualizing `origin` and `eye` poses as markers.");
