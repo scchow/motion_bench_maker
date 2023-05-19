@@ -204,6 +204,7 @@ bool OctomapGenerator::geomToSensed(const ScenePtr &geometric, const ScenePtr &s
         }
     }
 
+    // brute force create array of cameras pointing downwards
     if (sensors_.use_camera_grid)
     {
         for (int x = sensors_.workspace_bounds.first[0]; x <= sensors_.workspace_bounds.second[0];
@@ -240,6 +241,125 @@ bool OctomapGenerator::geomToSensed(const ScenePtr &geometric, const ScenePtr &s
                     rviz->addMarker(eye, marker_name);
 
                     rviz->updateMarkers();
+                }
+            }
+        }
+    }
+
+    // Put camera 2 meters away from the AABB (TODO: change to params)
+    double camera_offset = 2;
+
+    // Create cameras focusing on all obstacles in the scene
+    if (sensors_.use_camera_all_obs)
+    {
+        RBX_INFO("Creating cameras looking at all obstacles in the world (May be computationally "
+                 "expensive...)");
+
+        // For every object, place 6 cameras around the object to collect full point cloud data
+        // TODO: Edge case, if the object is too close to another object, our camera may intersect with a
+        // object
+        for (const auto &obj_name : geometric->getCollisionObjects())
+        {
+            robowflex::RobotPose pose = geometric->getObjectPose(obj_name);
+            robowflex::GeometryPtr geom = geometric->getObjectGeometry(obj_name);
+            Eigen::AlignedBox3d aabb = geom->getAABB(pose);
+
+            std::vector<Eigen::Vector3d> camera_locations;
+
+            // For a unit cube, it has been shown that:
+            // E Vector    Eigen CornerType
+            // 0 [0, 0, 0] BottomLeftFloor
+            // 1 [1, 0, 0] BottomRightFloor
+            // 2 [0, 1, 0] TopLeftFloor
+            // 3 [1, 1, 0] TopRightFloor
+            // 4 [0, 0, 1] BottomLeftCeil
+            // 5 [1, 0, 1] BottomRightCeil
+            // 6 [0, 1, 1] TopLeftCeil
+            // 7 [1, 1, 1] TopRightCeil
+            // from https://eigen.tuxfamily.org/bz/show_bug.cgi?id=476
+
+            // Left face (-x axis)
+            camera_locations.push_back((aabb.corner(aabb.BottomLeftFloor) + aabb.corner(aabb.TopLeftFloor) +
+                                        aabb.corner(aabb.BottomLeftCeil) + aabb.corner(aabb.TopLeftCeil)) /
+                                           4 +
+                                       Eigen::Vector3d(-camera_offset, 0, 0));
+
+            // Right face (+x axis)
+            camera_locations.push_back((aabb.corner(aabb.BottomRightFloor) + aabb.corner(aabb.TopRightFloor) +
+                                        aabb.corner(aabb.BottomRightCeil) + aabb.corner(aabb.TopRightCeil)) /
+                                           4 +
+                                       Eigen::Vector3d(camera_offset, 0, 0));
+
+            // Bottom face (-y axis) - Note that this is not the face towards the floor, which is called Floor
+            camera_locations.push_back(
+                (aabb.corner(aabb.BottomLeftFloor) + aabb.corner(aabb.BottomRightFloor) +
+                 aabb.corner(aabb.BottomRightCeil) + aabb.corner(aabb.BottomRightCeil)) /
+                    4 +
+                Eigen::Vector3d(0, -camera_offset, 0));
+
+            // Top face (+y axis) - Note that this is not the face towards the ceiling, which is called Ceil
+            camera_locations.push_back((aabb.corner(aabb.TopLeftFloor) + aabb.corner(aabb.TopRightFloor) +
+                                        aabb.corner(aabb.TopRightCeil) + aabb.corner(aabb.TopRightCeil)) /
+                                           4 +
+                                       Eigen::Vector3d(0, camera_offset, 0));
+
+            // Ceil face (+z axis)
+            camera_locations.push_back((aabb.corner(aabb.BottomLeftCeil) + aabb.corner(aabb.TopLeftCeil) +
+                                        aabb.corner(aabb.TopRightCeil) + aabb.corner(aabb.TopRightCeil)) /
+                                           4 +
+                                       Eigen::Vector3d(0, 0, camera_offset));
+
+            const Eigen::Vector3d eye = geometric->getObjectPose(obj_name) * Eigen::Vector3d::Zero();
+
+            for (const auto &origin : camera_locations)
+            {
+                // check collision across all objects
+                // collision = false;
+                // for (const auto col_obj : geometric->getCollisionObjects())
+                // {
+                //     robowflex::Geometry col_geom = geometric->getObjectGeometry(col_obj);
+                //     Eigen::AlignedBox3d col_aabb = geom.getAABB(pose);
+                //     if (col_aabb.contains(origin))
+                //     {
+                //         collision = true;
+                //         break;
+                //     }
+                // }
+                // If the camera doesn't intersect with an object, create it
+                // if (!collision)
+                // {
+                const auto cam_pose = lookat(eye, origin);
+                const auto &cloud = generateCloud(cam_pose);
+
+                if (not updateOctoMap(cloud, cam_pose))
+                    return false;
+
+                if (rviz)
+                {
+                    int marker_ind_curr = marker_ind++;
+
+                    marker_name = "camera_" + std::to_string(marker_ind_curr);
+                    marker_names.push_back(marker_name + "X");
+                    marker_names.push_back(marker_name + "Y");
+                    marker_names.push_back(marker_name + "Z");
+                    rviz->addTransformMarker(marker_name, "map", cam_pose);
+
+                    marker_name = "origin_" + std::to_string(marker_ind_curr);
+                    marker_names.push_back(marker_name);
+                    rviz->addMarker(origin, marker_name);
+
+                    marker_name = "eye_" + std::to_string(marker_ind_curr);
+                    marker_names.push_back(marker_name);
+                    rviz->addMarker(eye, marker_name);
+
+                    rviz->updateMarkers();
+                }
+                // }
+                else
+                {
+                    RBX_WARN("octomap_generator.cpp: unable to add camera for object %s at (%d, %d, %d), due "
+                             "to intersection with other object.",
+                             obj_name, origin[0], origin[1], origin[2]);
                 }
             }
         }

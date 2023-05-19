@@ -61,6 +61,10 @@ namespace robowflex
             double grid_spacing;           // spacing between cameras in a grid
             double camera_height;          // height of the camera grid
             std::pair<std::vector<double>, std::vector<double>> workspace_bounds;
+
+            bool use_camera_all_obs = false;  // flag for creating cameras
+                                              // around all obstacles in the environment
+            double camera_offset;             // How far away from each face to place the camera
         };
         // Constructor
         OctomapGenerator(const std::string &config);
