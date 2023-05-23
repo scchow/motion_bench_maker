@@ -91,3 +91,22 @@ add_dependencies(sensed_scenes ${catkin_EXPORTED_TARGETS})
 #add_executable(benchmark_simple scripts/benchmark_simple.cpp)
 #target_link_libraries(benchmark_simple ${LIBRARY_NAME})
 #add_dependencies(benchmark_simple ${catkin_EXPORTED_TARGETS})
+
+
+# # Installs library to install directory. Assumes LIBRARY_NAME is set.
+install(TARGETS ${LIBRARY_NAME}
+  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
+install(DIRECTORY include/${PROJECT_NAME}/ DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION})
+
+# Mark cpp header files for installation
+install(DIRECTORY include/${PROJECT_NAME}/
+  DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
+  FILES_MATCHING PATTERN "*.h"
+  PATTERN ".svn" EXCLUDE
+)
+
+# # Installs a directory (e.g., YAML, etc.) to the install directory.
+# # install(DIRECTORY ${directory} DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
+

@@ -64,18 +64,18 @@ ScenePtr SceneSampler::sample(const SceneConstPtr &nominal) const
     }
 
     // Apply object variations
-    for (const auto &object_var : object_variations_)
-        for (const auto &name : object_var->names)
-        {
-            if (not scene->hasObject(name))
-            {
+    for (const auto &object_var : object_variations_){
+        for (const auto &name : object_var->names){
+            if (not scene->hasObject(name)){
                 ROS_WARN("Object %s does not exist in the nominal scene !", name.c_str());
                 continue;
             }
-
+            // sample a new location for the object
             const auto &tf = object_var->sample();
+            // move the object
             scene->moveObjectLocal(name, tf);
         }
+    }
 
     return scene;
 }

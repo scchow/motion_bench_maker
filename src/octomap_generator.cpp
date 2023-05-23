@@ -355,12 +355,13 @@ bool OctomapGenerator::geomToSensed(const ScenePtr &geometric, const ScenePtr &s
                     rviz->updateMarkers();
                 }
                 // }
-                else
-                {
-                    RBX_WARN("octomap_generator.cpp: unable to add camera for object %s at (%d, %d, %d), due "
-                             "to intersection with other object.",
-                             obj_name, origin[0], origin[1], origin[2]);
-                }
+                // else
+                // {
+                //     RBX_WARN("octomap_generator.cpp: unable to add camera for object %s at (%d, %d, %d),
+                //     due "
+                //              "to intersection with other object.",
+                //              obj_name, origin[0], origin[1], origin[2]);
+                // }
             }
         }
     }

@@ -407,6 +407,35 @@ bool IO::loadSensors(const std::string &config, OctomapGenerator::Sensors &senso
                 std::make_pair(YAMLToVector(node["camera_grid"]["workspace_bounds"]["min"]),
                                YAMLToVector(node["camera_grid"]["workspace_bounds"]["max"]));
         }
+        try
+        {
+            if (node["camera_all_obs"])
+            {
+                try
+                {
+                    sensors.use_camera_all_obs = node["camera_all_obs"]["enable"].as<bool>();
+                }
+                catch (std::exception &e)
+                {
+                    ROS_ERROR("Failed to process camera_all_obs::enable");
+                    throw e;
+                }
+                try
+                {
+                    sensors.camera_offset = node["camera_all_obs"]["camera_offset"].as<double>();
+                }
+                catch (std::exception &e)
+                {
+                    ROS_ERROR("Failed to process camera_all_obs:camera_offset");
+                    throw e;
+                }
+            }
+        }
+        catch (std::exception &e)
+        {
+            ROS_ERROR("Failed to process camera_all_obs");
+            throw e;
+        }
     }
     catch (std::exception &e)
     {

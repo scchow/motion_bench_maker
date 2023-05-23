@@ -297,7 +297,13 @@ void Setup::saveRequest(const int &index, const MotionRequestBuilderConstPtr &re
     auto request_file =
         IO::resolvePackage(dataset_ + "/request" + parser::toString(index, dwidth_) + ".yaml");
     if (!request->toYAMLFile(request_file))
+    {
         ROS_ERROR("Failed to save file: %s for request", request_file.c_str());
+    }
+    else
+    {
+        ROS_INFO("Saving request to %s", request_file.c_str());
+    }
 }
 
 void Setup::saveConfigToDataset() const

@@ -163,7 +163,7 @@ void ProblemGenerator::processQueries()
             throw Exception(1, "No valid start/goal pairs were found");
     }
 
-    RBX_INFO("Queries were proccesed Start Objects Queries: %d, Goal Object queries: %d, "
+    RBX_INFO("Queries were processed. Start Objects Queries: %d, Goal Object queries: %d, "
              "Start Queries: % d, Goal Queries % d, Total Start / Goal queries %d",
              start_object_queries_.size(), goal_object_queries_.size(), start_queries_.size(),
              goal_queries_.size(), sg_queries_.size());
@@ -215,6 +215,10 @@ ProblemGenerator::QueryResult ProblemGenerator::createRequest(const Query &start
         scene_ = default_scene_->deepCopy();
         // clear all the attached bodies
         robot_->getScratchState()->clearAttachedBodies();
+        ROS_WARN("Failed to create request due to failure to set state"
+                 "from start/goal query: start success: %d, goal success %d"
+                 "Reverting to original default scene",
+                 start_success, goal_success);
     }
 
     return QueryResult(request, success);
@@ -346,6 +350,8 @@ bool ProblemGenerator::setStateFromQuery(const Query &query)
     const auto &root_name = robot_->getModelConst()->getRootLinkName();
     const auto &root_pose = robot_->getLinkTF(root_name);
 
+    std::string log_message = "Generating IK Query: ";
+
     for (unsigned int i = 0; i < query.object_queries.size(); i++)
     {
         const auto &oq = query.object_queries[i];
@@ -360,11 +366,19 @@ bool ProblemGenerator::setStateFromQuery(const Query &query)
         poses.emplace_back(TF::createPoseXYZ(ee_query_pose.translation()));
         orientations.emplace_back(TF::getPoseRotation(ee_query_pose));
         tolerances.emplace_back(oq.ornt_tol);
+        std::stringstream ss;
+        ss << ee_query_pose.translation();
+        log_message += "pose:\n[" + ss.str() + "]\n";
+        ss.clear();
+        ss << ee_query_pose.rotation();
+        log_message += "orientation:\n[" + ss.str() + "]\n";
     }
+    RBX_WARN(log_message);
 
     auto ik_query = Robot::IKQuery(group_, tips_, regions, poses, orientations, tolerances, scene_);
     ik_query.attempts = 200;
     ik_query.timeout = 0.01;
+    ik_query.verbose = true;  // enabling some ik debug statements to figure out if bad IK is causing issues.
 
     // Need approximate solutions as multi-target BioIK will only return approximate solutions.
     ik_query.options.return_approximate_solution = true;
