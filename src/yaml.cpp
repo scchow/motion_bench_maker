@@ -86,7 +86,7 @@ namespace
     }
 
     // TODO convert to encode/decode?.
-    SceneSampler::Variation YAMLToVariation(const YAML::Node &node)
+    SceneSampler::Variation yamlToVariation(const YAML::Node &node)
     {
         auto var = SceneSampler::Variation();
 
@@ -228,7 +228,7 @@ bool IO::loadVariations(const std::string &config, std::vector<SceneSampler::Var
     {
         auto &node = result.second;
         for (unsigned int i = 0; i < node.size(); ++i)
-            vars.emplace_back(YAMLToVariation(node[i]));
+            vars.emplace_back(yamlToVariation(node[i]));
     }
     catch (std::exception &e)
     {
